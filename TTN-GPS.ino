@@ -1,13 +1,14 @@
+//#define USE_DISPLAY
+
 #include "time.h"
 #include <Timezone.h>
+#ifdef USE_DISPLAY
 #include "ssd1306.h"
+#endif
 #include <TinyGPS++.h>
 
-#include <CayenneLPP.h>
-CayenneLPP lpp(51);
-
 #include <SimpleLMIC.h>
-#include "TTN-IDs.h"
+#include "./TTN-IDs.h"
 
 SimpleLMIC ttn;
 
@@ -18,6 +19,7 @@ const lmic_pinmap lmic_pins = {
    .dio = {2, 3, LMIC_UNUSED_PIN},
 };
 
+uint32_t lastMillisGPSDebugLoop = millis() - 1000;
 uint32_t lastMillis10SecLoop = millis() - 1000;
 uint32_t lastMillisTTNSent = millis() - 1000;
 uint32_t lastMillis60SecLoop = millis() - 60000;
@@ -42,17 +44,21 @@ time_t local, utc, prev_set;
 int timesetinterval = 60; //set microcontroller time every 60 seconds
 bool timesetonce = false;
 
+#ifdef USE_DISPLAY
 char displayTextDate[256], displayTextTime[256];
+#endif
 
 void setup()
 {
   Serial.begin(115200);
+  while(!Serial) {delay(100);}
   Serial.println();
   Serial.println("Begin...");
   Serial1.begin(9600);
   
+#ifdef USE_DISPLAY
   setupDisplay();
-
+#endif
   ttn.begin();
   ttn.setSubBand(2);
   ttn.onMessage(message);
@@ -74,8 +80,9 @@ void loop()
     if (gps.encode(Serial1.read())) newData = true;
   }
 
-  if (newData && gps.location.isValid())
+  if (newData && gps.location.isValid() && millis() - lastMillisGPSDebugLoop > 20*1000 )
   {
+    lastMillisGPSDebugLoop = millis();
     latitude = gps.location.lat();
     longitude = gps.location.lng();
     altitude = gps.altitude.meters();
@@ -83,8 +90,6 @@ void loop()
 
     setthetime();
 
-    lpp.reset();
-    //lpp.addGPS(1, (float)latitude, (float)longitude, (float)altitude);
     sprintf(vlat, "%010.6f", (float)latitude);
     sprintf(vlng, "%010.6f", (float)longitude);
     sprintf(valt, "%06.2f", (float)altitude);
@@ -107,15 +112,13 @@ void loop()
   }
 
   ttn.loop();
-  if (!ttn.isBusy() && millis() - lastMillisTTNSent > 20*1000 && gpsdatasetonce && msg != "falsch")
+  if (!ttn.isBusy() && millis() - lastMillisTTNSent > 60*1000 && gpsdatasetonce && msg != "falsch")
   {
     lastMillisTTNSent = millis();
     Serial.println("Not Busy!");
-    ttn.write(lpp.getBuffer(), lpp.getSize());
     ttn.print(msg);
     ttn.send();
   }
-
   //10sec-Loop
   if ((millis() - lastMillis10SecLoop) > 10000)
   {
@@ -126,10 +129,12 @@ void loop()
     serialPrintLocation();
   }
 
+#ifdef USE_DISPLAY
   //Update Time and Date on Display every Loop
   if(timesetonce) {
     updateDisplay();
   }
+#endif
 }
 
 void setthetime(void)
@@ -153,6 +158,7 @@ void message(uint8_t *payload, size_t size, uint8_t port)
   }
 }
 
+#ifdef USE_DISPLAY
 void setupDisplay() {
   ssd1306_setFixedFont(ssd1306xled_font6x8);
   ssd1306_setFixedFont(courier_new_font11x16_digits);
@@ -175,6 +181,7 @@ void updateDisplay() {
   ssd1306_printFixed(0,  0, displayTextDate, STYLE_NORMAL);
   ssd1306_printFixed(0,  16, displayTextTime, STYLE_NORMAL);
 }
+#endif
 
 void serialPrintLocation() {
   if(!gps.location.isValid()) return;
