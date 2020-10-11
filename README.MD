@@ -1,7 +1,9 @@
 # TTN GPS Sensor
-Log GPS to ttn with float-percistion
+Log GPS to ttn with float-precistion
+I use this to feed ttnmapper :)
 
 Works on Arduino Due with RFM95W and SSD1306-Display
+Had to use a Due because i could not figure out how to get this running with less memory
 
 Parts-List:
 - Arduino Due
