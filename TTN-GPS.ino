@@ -1,4 +1,5 @@
-//#define USE_DISPLAY
+#include <Arduino.h>
+#define USE_DISPLAY
 
 #include "time.h"
 #include <Timezone.h>
@@ -12,11 +13,19 @@
 
 SimpleLMIC ttn;
 
+/*
 const lmic_pinmap lmic_pins = {
    .nss = 10,
    .rxtx = LMIC_UNUSED_PIN,
    .rst = LMIC_UNUSED_PIN,
    .dio = {2, 3, LMIC_UNUSED_PIN},
+};
+*/
+const lmic_pinmap lmic_pins = {
+   .nss = 18,
+   .rxtx = LMIC_UNUSED_PIN,
+   .rst = 23,
+   .dio = {26, 33, 32},
 };
 
 uint32_t lastMillisGPSDebugLoop = millis() - 1000;
@@ -48,14 +57,19 @@ bool timesetonce = false;
 char displayTextDate[256], displayTextTime[256];
 #endif
 
+#define GPSSerial Serial1
+#define GPS_RX_PIN 34
+#define GPS_TX_PIN 12
+
 void setup()
 {
   Serial.begin(115200);
-  while(!Serial) {delay(100);}
+  delay(10000);
   Serial.println();
   Serial.println("Begin...");
-  Serial1.begin(9600);
-  
+  GPSSerial.begin(9600, SERIAL_8N1, GPS_RX_PIN, GPS_TX_PIN);
+  GPSSerial.setTimeout(2);
+
 #ifdef USE_DISPLAY
   setupDisplay();
 #endif
@@ -76,8 +90,8 @@ void loop()
   unsigned long chars;
   unsigned short sentences, failed;
 
-  while (Serial1.available()) {
-    if (gps.encode(Serial1.read())) newData = true;
+  while (GPSSerial.available()) {
+    if (gps.encode(GPSSerial.read())) newData = true;
   }
 
   if (newData && gps.location.isValid() && millis() - lastMillisGPSDebugLoop > 20*1000 )
@@ -162,7 +176,7 @@ void message(uint8_t *payload, size_t size, uint8_t port)
 void setupDisplay() {
   ssd1306_setFixedFont(ssd1306xled_font6x8);
   ssd1306_setFixedFont(courier_new_font11x16_digits);
-  ssd1306_128x32_i2c_init();
+  ssd1306_128x64_i2c_init();
   ssd1306_clearScreen();
   ssd1306_flipVertical(1);
   ssd1306_flipHorizontal(1);
