@@ -7,7 +7,7 @@
 #include <TinyGPS++.h>
 
 #include <SimpleLMIC.h>
-#include "./configuration.h"
+#include "./TTN-configuration.h"
 
 SimpleLMIC ttn;
 
