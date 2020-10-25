@@ -1,11 +1,5 @@
 #include <Arduino.h>
-//#define USE_DISPLAY
-
-#ifdef USE_DISPLAY
-#include "ssd1306.h"
-#endif
 #include <TinyGPS++.h>
-
 #include <SimpleLMIC.h>
 #include "./TTN-configuration.h"
 
