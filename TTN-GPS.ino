@@ -2,6 +2,9 @@
 #include <TinyGPS++.h>
 #include <SimpleLMIC.h>
 #include "./TTN-configuration.h"
+#ifdef USE_DISPLAY
+#include "ssd1306.h"
+#endif
 
 SimpleLMIC ttn;
 
@@ -10,11 +13,13 @@ uint32_t GPSDebugLoopMillis = millis() - GPSDebugLoopInterval;
 int TTNDebugLoopInterval = 1000;
 uint32_t TTNDebugLoopMillis = millis() - TTNDebugLoopInterval;
 
-int TTNSendLoopInterval = 20000;
+int TTNSendLoopInterval = 10000;
 uint32_t TTNSendLoopMillis = millis() - TTNSendLoopInterval;
 
+int DisplayUpdateLoopInterval = 1000;
+uint32_t DisplayUpdateLoopMillis = millis() - DisplayUpdateLoopInterval;
+
 TinyGPSPlus gps;
-bool newGPSData = false;
 bool newGPSDataThisLoop = false;
 
 uint8_t coords[9];
@@ -34,7 +39,10 @@ void setup()
   GPSSerial.begin(9600);
   #endif //defined GPS_RX_PIN && defined GPS_TX_PIN
   GPSSerial.setTimeout(2);
-
+  
+#ifdef USE_DISPLAY
+  setupDisplay();
+#endif
   ttn.begin();
   ttn.setSubBand(2);
   ttn.onMessage(message);
@@ -63,8 +71,10 @@ void loop()
     ttn.write((uint8_t*) coords, sizeof(coords));
 
     ttn.send();
-    newGPSData = false;
   }
+#ifdef USE_DISPLAY
+  updateDisplay();
+#endif
 }
 
 void message(uint8_t *payload, size_t size, uint8_t port)
@@ -172,3 +182,39 @@ void printTTNDebug() {
 
   Serial.println();
 }
+#ifdef USE_DISPLAY
+void setupDisplay() {
+  ssd1306_setFixedFont(ssd1306xled_font6x8);
+  //ssd1306_setFixedFont(courier_new_font11x16_digits);
+  ssd1306_128x64_i2c_init();
+  ssd1306_clearScreen();
+  ssd1306_flipVertical(1);
+  ssd1306_flipHorizontal(1);
+  updateDisplay();
+}
+
+void updateDisplay() {
+  if(millis() - DisplayUpdateLoopMillis > DisplayUpdateLoopInterval) {
+    DisplayUpdateLoopMillis = millis();
+
+    char displayTextTTNIsBusy[256];
+    sprintf(displayTextTTNIsBusy, "TTN.isBusy(): %d", ttn.isBusy());
+    ssd1306_printFixed(0,  0, displayTextTTNIsBusy, STYLE_NORMAL);
+    char displayTextTTNIsLink[256];
+    sprintf(displayTextTTNIsLink, "TTN.isLink(): %d", ttn.isLink());
+    ssd1306_printFixed(0,  8, displayTextTTNIsLink, STYLE_NORMAL);
+    char displayTextGPSIsValid[256];
+    sprintf(displayTextGPSIsValid, "GPS.isValid(): %d", gps.location.isValid());
+    ssd1306_printFixed(0,  16, displayTextGPSIsValid, STYLE_NORMAL);
+    char displayTextLat[256];
+    sprintf(displayTextLat, "lat: %10.6f", gps.location.lat());
+    ssd1306_printFixed(0,  24, displayTextLat, STYLE_NORMAL);
+    char displayTextLng[256];
+    sprintf(displayTextLng, "lng: %10.6f", gps.location.lng());
+    ssd1306_printFixed(0,  32, displayTextLng, STYLE_NORMAL);
+    char gpsNumSats[256];
+    sprintf(gpsNumSats, "Satellites: %3u", gps.satellites.value());
+    ssd1306_printFixed(0,  40, gpsNumSats, STYLE_NORMAL);
+  }
+}
+#endif
